@@ -64,7 +64,7 @@ function ninjaMqtt(opts, app) {
     this.mqttClient.on('connect', function () {
         app.log.info("Connected to MQTT broker");
         self.registerBlock(function(err) {
-            if (err) throw(err);
+            if (err) throw err;
             app.log.info("Registered %s on MQTT broker", app.id);
             self.publishUp(CHANNELS.dev.meta(app.id), function(err) {
                 if (err) return app.log.error("Publish UP to MQTT: %s", err);
@@ -75,7 +75,7 @@ function ninjaMqtt(opts, app) {
             for (devGuid in self.devices) {
                 var device = self.devices[devGuid];
                 self.registerDevice(device, function(err, regT) {
-                    if (err) throw(err);
+                    if (err) throw err;
                     app.log.info("Registered device %s as %s on MQTT broker",
                                  devGuid, regT);
                     self.publishUp(CHANNELS.dev[regT].meta(app.id,
