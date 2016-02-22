@@ -1,0 +1,27 @@
+{
+  "name": "ninja-mqtt",
+  "version": "0.0.1",
+  "description": "MQTT driver for Ninjablock",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hlapp/ninja-mqtt.git"
+  },
+  "keywords": [
+    "ninjablock",
+    "mqtt",
+    "iot"
+  ],
+  "author": "Hilmar Lapp <hlapp@drycafe.net> (http://lappland.io)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hlapp/ninja-mqtt/issues"
+  },
+  "homepage": "https://github.com/hlapp/ninja-mqtt#readme",
+  "dependencies": {
+    "mqtt": "latest"
+  }
+}
