@@ -48,6 +48,7 @@ function ninjaMqtt(opts, app) {
     });
     if (ninja.length < 1) throw new Error("could not find ninja client object");
     this.devices = ninja[0].devices || {};
+    this.queuedRegistrations = [];
 
     // read and as needed update connection and other configuration
     var config = require("./lib/config");
@@ -73,6 +74,11 @@ function ninjaMqtt(opts, app) {
                 app.log.debug("Published UP for %s", app.id);
             });
         });
+        // register devices that have been queued up
+        var devGuid;
+        while (devGuid = self.queuedRegistrations.pop()) {
+            self.registerDevice(devGUID);
+        }
     });
     this.mqttClient.on('reconnect', function () {
         app.log.info("Reconnecting to MQTT broker");
@@ -89,7 +95,10 @@ function ninjaMqtt(opts, app) {
     }.bind(this));
 };
 
-ninjaMqtt.prototype.registerDeviceHandler = function(devGuid) {
+ninjaMqtt.prototype.registerDevice = function(devGuid) {
+    // if we aren't currently connected to MQTT, queue the device
+    if (!this.isConnected) return this.queuedRegistrations.push(devGuid);
+    // otherwise register the device on MQTT broker
     var self = this,
         log = this.app.log,
         device = this.devices[devGuid];
@@ -111,13 +120,6 @@ ninjaMqtt.prototype.registerBlock = function(callback) {
     var mqttClient = this.mqttClient;
     if (!mqttClient) callback(new Error("MQTT connection not available"));
     this.blockHeartbeat(callback);
-};
-
-ninjaMqtt.prototype.registerDevice = function(device, callback) {
-    callback = defaultHandler(callback);
-    var mqttClient = this.mqttClient;
-    if (!mqttClient) callback(new Error("MQTT connection not available"));
-    this.deviceHeartbeat(device, callback);
 };
 
 ninjaMqtt.prototype.publishUp = function(topic, callback) {
