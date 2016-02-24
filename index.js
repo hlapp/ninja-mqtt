@@ -113,6 +113,7 @@ ninjaMqtt.prototype.registerDevice = function(devGuid) {
                            log.debug("Published UP for %s", devGuid);
                        });
     });
+    device.on('data', this.dataHandler.call(this, device));
 }
 
 ninjaMqtt.prototype.registerBlock = function(callback) {
@@ -167,6 +168,25 @@ ninjaMqtt.prototype.deviceHeartbeat = function(device, callback) {
               });
           });
 };
+
+ninjaMqtt.prototype.dataHandler = function(device) {
+    var log = this.app.log;
+    var self = this;
+
+    return function(data) {
+        if (!self.isConnected) {
+            return log.debug("MQTT not connected, dropping data (%s)", data);
+        }
+        var topic = CHANNELS.dev.sensor.value(self.app.id, deviceUID(device)),
+            qos = { qos: 1 };
+        self.mqttClient.publish(topic, data, qos, function(err) {
+            if (err) {
+                return log.error("Error publishing data from %s: %s",
+                                 device.GUID, err);
+            }
+        });
+    };
+}
 
 function deviceUID(device) {
     return [device.G, device.V, device.D].join('_');
