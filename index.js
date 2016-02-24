@@ -46,7 +46,7 @@ function ninjaMqtt(opts, app) {
     var ninja = app.domain.members.filter(function(member) {
         return member.hasOwnProperty('devices');
     });
-    if (ninja.length < 1) app.log.error("failed to locate ninja client object");
+    if (ninja.length < 1) throw new Error("could not find ninja client object");
     this.devices = ninja[0].devices || {};
 
     // read and as needed update connection and other configuration
@@ -58,10 +58,12 @@ function ninjaMqtt(opts, app) {
         config.password = config.password || app.token;
     }
     /* connect to MQTT server */
+    this.isConnected = false;
     this.mqttClient = mqtt.connect(config.connOpts);
 
     /* register event handlers for MQTT connection */
     this.mqttClient.on('connect', function () {
+        self.isConnected = true;
         app.log.info("Connected to MQTT broker");
         self.registerBlock(function(err) {
             if (err) throw err;
@@ -71,39 +73,38 @@ function ninjaMqtt(opts, app) {
                 app.log.debug("Published UP for %s", app.id);
             });
         });
-        app.on('client::up', function () {
-            for (devGuid in self.devices) {
-                var device = self.devices[devGuid];
-                self.registerDevice(device, function(err, regT) {
-                    if (err) throw err;
-                    app.log.info("Registered device %s as %s on MQTT broker",
-                                 devGuid, regT);
-                    self.publishUp(CHANNELS.dev[regT].meta(app.id,
-                                                           deviceUID(device)),
-                                   function(err) {
-                                       if (err) {
-                                           return app.log.error(
-                                               "Publish UP to MQTT: %s", err);
-                                       }
-                                       app.log.debug("Published UP for %s",
-                                                     devGuid);
-                                   });
-                });
-            }
-        });
     });
     this.mqttClient.on('reconnect', function () {
         app.log.info("Reconnecting to MQTT broker");
     });
     this.mqttClient.on('close', function () {
+        self.isConnected = false;
         app.log.info("Disconnected from MQTT broker");
     });
 
+    app.on('device::up', this.registerDeviceHandler.bind(this));
     app.on('client::down', function () {
         /* disconnect from MQTT server */
         this.mqttClient.end();
     }.bind(this));
 };
+
+ninjaMqtt.prototype.registerDeviceHandler = function(devGuid) {
+    var self = this,
+        log = this.app.log,
+        device = this.devices[devGuid];
+    this.registerDevice(device, function(err, regT) {
+        if (err) throw err;
+        log.info("Registered device %s as %s with MQTT broker", devGuid, regT);
+        self.publishUp(CHANNELS.dev[regT].meta(self.app.id, deviceUID(device)),
+                       function(err) {
+                           if (err) {
+                               return log.error("Publish UP to MQTT: %s", err);
+                           }
+                           log.debug("Published UP for %s", devGuid);
+                       });
+    });
+}
 
 ninjaMqtt.prototype.registerBlock = function(callback) {
     callback = defaultHandler(callback);
