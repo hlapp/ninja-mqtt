@@ -88,7 +88,7 @@ function ninjaMqtt(opts, app) {
         app.log.info("Disconnected from MQTT broker");
     });
 
-    app.on('device::up', this.registerDeviceHandler.bind(this));
+    app.on('device::up', this.registerDevice.bind(this));
     app.on('client::down', function () {
         /* disconnect from MQTT server */
         this.mqttClient.end();
@@ -102,7 +102,7 @@ ninjaMqtt.prototype.registerDevice = function(devGuid) {
     var self = this,
         log = this.app.log,
         device = this.devices[devGuid];
-    this.registerDevice(device, function(err, regT) {
+    this.deviceHeartbeat(device, function(err, regT) {
         if (err) throw err;
         log.info("Registered device %s as %s with MQTT broker", devGuid, regT);
         self.publishUp(CHANNELS.dev[regT].meta(self.app.id, deviceUID(device)),
