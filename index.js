@@ -192,21 +192,6 @@ function deviceUID(device) {
     return [device.G, device.V, device.D].join('_');
 }
 
-function subscribe(mqttClient) {
-    mqttClient.subscribe('$SYS/#', function(err, granted) {
-        if (err) throw err;
-        granted.forEach(function(elem) {
-            console.log("subscribed to " + elem.topic + ", QoS=" + elem.qos);
-        });
-    });
-}
-
-function publish(mqttClient) {
-    mqttClient.publish('presence', 'Hello mqtt', function() {
-        console.log("publish complete");
-    });
-}
-
 function defaultHandler(callback) {
     return (callback && ('function' === typeof callback)) ?
         callback : function(err) { if (err) throw err; }
