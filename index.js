@@ -156,7 +156,7 @@ ninjaMqtt.prototype.deviceHeartbeat = function(device, callback) {
         qos = { qos: 2 };
     [ device.readable ?
       CHANNELS.dev.sensor.meta(app.id, deviceID) : undefined,
-      device.writable ?
+      device.writeable ?
       CHANNELS.dev.actuator.meta(app.id, deviceID) : undefined ].forEach(
           function(prefix, i) {
               if (prefix ==  undefined) return;
