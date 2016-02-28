@@ -113,7 +113,15 @@ ninjaMqtt.prototype.registerDevice = function(devGuid) {
                            log.debug("Published UP for %s", devGuid);
                        });
     });
-    device.on('data', this.dataHandler.call(this, device));
+    if (device.readable) {
+        device.on('data', dataHandler.call(this, device));
+    }
+    if (device.writeable) {
+        this.subscribeActuatorTopic(device, function(err, granted) {
+            if (err) throw err;
+            self.mqttClient.on('message', messageHandler.call(self, device));
+        });
+    }
 }
 
 ninjaMqtt.prototype.registerBlock = function(callback) {
@@ -169,7 +177,23 @@ ninjaMqtt.prototype.deviceHeartbeat = function(device, callback) {
           });
 };
 
-ninjaMqtt.prototype.dataHandler = function(device) {
+ninjaMqtt.prototype.subscribeActuatorTopic = function(device, callback) {
+    callback = defaultHandler(callback);
+    var mqttClient = this.mqttClient,
+        app = this.app,
+        deviceID = deviceUID(device),
+        topic = CHANNELS.dev.actuator.value(app.id, deviceID),
+        qos = { qos: 1 };
+    mqttClient.subscribe(topic, qos, function(err, granted) {
+        if (err) return callback(err);
+        granted.forEach(function(subscr) {
+            app.log.info("Subscribed to actuator topic for device", deviceID);
+        });
+        callback(err, granted);
+    });
+}
+
+function dataHandler(device) {
     var log = this.app.log;
     var self = this;
 
@@ -185,6 +209,27 @@ ninjaMqtt.prototype.dataHandler = function(device) {
                                  device.GUID, err);
             }
         });
+    };
+}
+
+function messageHandler(device) {
+    var log = this.app.log,
+        self = this;
+    return function(topic, message) {
+        var DA = message.toString();
+        if ('function' == typeof device.write) {
+            device.write(DA, function(err) {
+                if (err) {
+                    return log.error("Error actuating %s: %s",device.GUID,err);
+                }
+                log.debug("Actuated %s (%s)", device.GUID, DA);
+            });
+        } else {
+            log.debug("Attempting to actuate device %s (%s) by command event",
+                      device.GUID, DA);
+            self.app.emit('device::command',
+                          { G: device.G, V: device.V, D: device.D, DA: DA });
+        }
     };
 }
 
