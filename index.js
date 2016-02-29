@@ -1,6 +1,6 @@
 var mqtt = require("mqtt")
     , util = require('util')
-    , stream = require('stream');
+    , stream = require('stream').Duplex;
 
 const enabled = true;
 
@@ -191,6 +191,14 @@ ninjaMqtt.prototype.subscribeActuatorTopic = function(device, callback) {
         });
         callback(err, granted);
     });
+}
+
+ninjaMqtt.prototype._read = function(size) {
+    this.push(mqttClient.read());
+}
+
+ninjaMqtt.prototype._write = function(chunk, encoding, callback) {
+    return this.mqttClient.write(chunk, encoding, callback);
 }
 
 function dataHandler(device) {
