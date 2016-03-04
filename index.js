@@ -59,12 +59,10 @@ function ninjaMqtt(opts, app) {
         config.password = config.password || app.token;
     }
     /* connect to MQTT server */
-    this.isConnected = false;
     this.mqttClient = mqtt.connect(config.connOpts);
 
     /* register event handlers for MQTT connection */
     this.mqttClient.on('connect', function () {
-        self.isConnected = true;
         app.log.info("Connected to MQTT broker");
         self.registerBlock(function(err) {
             if (err) throw err;
@@ -84,7 +82,6 @@ function ninjaMqtt(opts, app) {
         app.log.info("Reconnecting to MQTT broker");
     });
     this.mqttClient.on('close', function () {
-        self.isConnected = false;
         app.log.info("Disconnected from MQTT broker");
     });
 
@@ -97,7 +94,9 @@ function ninjaMqtt(opts, app) {
 
 ninjaMqtt.prototype.registerDevice = function(devGuid) {
     // if we aren't currently connected to MQTT, queue the device
-    if (!this.isConnected) return this.queuedRegistrations.push(devGuid);
+    if (! (this.mqttClient && this.mqttClient.connected)) {
+        return this.queuedRegistrations.push(devGuid);
+    }
     // otherwise register the device on MQTT broker
     var self = this,
         log = this.app.log,
@@ -203,7 +202,7 @@ function dataHandler(device) {
     var self = this;
 
     return function(data) {
-        if (!self.isConnected) {
+        if (!self.mqttClient.connected) {
             return log.debug("MQTT not connected, dropping data (%s)", data);
         }
         var topic = CHANNELS.dev.sensor.value(self.app.id, deviceUID(device)),
