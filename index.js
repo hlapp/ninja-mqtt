@@ -27,15 +27,15 @@ function ninjaMqtt(opts, app) {
     this.queuedRegistrations = [];
 
     // read and as needed update connection and other configuration
-    var config = require("./lib/config");
+    var connOpts = require("./lib/config").connOpts;
     // fall back to serial as username and app token as password if username
     // and password are needed (userID may be implied by key, or anonymous)
-    if (config.username != undefined) {
-        config.username = config.username || app.id;
-        config.password = config.password || app.token;
+    if (connOpts.username != undefined) {
+        connOpts.username = connOpts.username || app.id;
+        connOpts.password = connOpts.password || app.token;
     }
     /* connect to MQTT server */
-    this.mqttClient = mqtt.connect(config.connOpts);
+    this.mqttClient = mqtt.connect(connOpts);
 
     /* register event handlers for MQTT connection */
     this.mqttClient.on('connect', function () {
