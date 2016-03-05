@@ -30,7 +30,7 @@ function ninjaMqtt(opts, app) {
     var connOpts = require("./lib/config").connOpts;
     // fall back to serial as username and app token as password if username
     // and password are needed (userID may be implied by key, or anonymous)
-    if (connOpts.username != undefined) {
+    if (connOpts.username !== undefined) {
         connOpts.username = connOpts.username || app.id;
         connOpts.password = connOpts.password || app.token;
     }
