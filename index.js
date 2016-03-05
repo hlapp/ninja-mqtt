@@ -49,9 +49,10 @@ function ninjaMqtt(opts, app) {
             });
         });
         // register devices that have been queued up
-        var devGuid;
-        while (devGuid = self.queuedRegistrations.pop()) {
+        var devGuid = self.queuedRegistrations.pop();
+        while (devGuid) {
             self.registerDevice(devGuid);
+            devGuid = self.queuedRegistrations.pop()
         }
     });
     this.mqttClient.on('reconnect', function () {
@@ -69,14 +70,15 @@ function ninjaMqtt(opts, app) {
 };
 
 ninjaMqtt.prototype.registerDevice = function(devGuid) {
-    // if we aren't currently connected to MQTT, queue the device
-    if (! (this.mqttClient && this.mqttClient.connected)) {
-        return this.queuedRegistrations.push(devGuid);
-    }
-    // otherwise register the device on MQTT broker
     var self = this,
         log = this.app.log,
         device = this.devices[devGuid];
+    // if we aren't currently connected to MQTT, queue the device
+    if (! (this.mqttClient && this.mqttClient.connected)) {
+        log.info("Queuing device %s for registration with MQTT", devGuid);
+        return this.queuedRegistrations.push(devGuid);
+    }
+    // otherwise register the device on MQTT broker
     this.deviceHeartbeat(device, function(err, regT) {
         if (err) throw err;
         log.info("Registered device %s as %s with MQTT broker", devGuid, regT);
