@@ -222,15 +222,12 @@ function messageHandler(device) {
     return function(topic, message) {
         var DA = message.toString();
         if ('function' == typeof device.write) {
-            device.write(DA, function(err) {
-                if (err) {
-                    return log.error("Error actuating %s: %s",device.GUID,err);
-                }
-                log.debug("Actuated %s (%s)", device.GUID, DA);
-            });
+            log.debug("Actuating device %s (%s) using write",
+                      deviceGUID(self.app.id, device), DA);
+            device.write(DA);
         } else {
-            log.debug("Attempting to actuate device %s (%s) by command event",
-                      device.GUID, DA);
+            log.debug("Actuating device %s (%s) using event",
+                      deviceGUID(self.app.id, device), DA);
             self.app.emit('device::command',
                           { G: device.G, V: device.V, D: device.D, DA: DA });
         }
@@ -239,6 +236,10 @@ function messageHandler(device) {
 
 function deviceUID(device) {
     return [device.G, device.V, device.D].join('_');
+}
+
+function deviceGUID(blockID, device) {
+    return blockID + '_' + deviceUID(device);
 }
 
 function defaultHandler(callback) {
