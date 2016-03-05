@@ -24,7 +24,7 @@ function ninjaMqtt(opts, app) {
     });
     if (ninja.length < 1) throw new Error("could not find ninja client object");
     this.devices = ninja[0].devices || {};
-    this.queuedRegistrations = [];
+    this.queuedRegistrations = Object.keys(this.devices);
 
     // read and as needed update connection and other configuration
     var connOpts = require("./lib/config").connOpts;
