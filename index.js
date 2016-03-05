@@ -4,30 +4,6 @@ var mqtt = require("mqtt")
 
 const enabled = true;
 
-const CHANNELS = {
-    block: function() { return "ninjablock/blocks"; },
-    dev: {
-        meta: fmtDeviceChannel.bind(this, null, "meta"), // pass blockID
-        sensor: {
-            // pass blockID, devID
-            meta: fmtDeviceChannel.bind(this, "sensor", "meta"), 
-            value: fmtDeviceChannel.bind(this, "sensor", "value")
-        },
-        actuator: {
-            // pass blockID, devID
-            meta: fmtDeviceChannel.bind(this, "actuator", "meta"), 
-            value: fmtDeviceChannel.bind(this, "actuator", "value")
-        }
-    }
-};
-
-function fmtDeviceChannel(devType, devChannel, blockID, devID) {
-    if (devID == undefined) {
-        return "dev/"+blockID+"/"+devChannel;
-    }
-    return "dev/"+blockID+"/"+devType+"/"+devID+"/"+devChannel;
-}
-
 // Give our driver a stream interface
 util.inherits(ninjaMqtt,stream);
 
@@ -67,7 +43,7 @@ function ninjaMqtt(opts, app) {
         self.registerBlock(function(err) {
             if (err) throw err;
             app.log.info("Registered %s on MQTT broker", app.id);
-            self.publishUp(CHANNELS.dev.meta(app.id), function(err) {
+            self.publishUp(self.topicNameFor('meta'), function(err) {
                 if (err) return app.log.error("Publish UP to MQTT: %s", err);
                 app.log.debug("Published UP for %s", app.id);
             });
@@ -104,7 +80,7 @@ ninjaMqtt.prototype.registerDevice = function(devGuid) {
     this.deviceHeartbeat(device, function(err, regT) {
         if (err) throw err;
         log.info("Registered device %s as %s with MQTT broker", devGuid, regT);
-        self.publishUp(CHANNELS.dev[regT].meta(self.app.id, deviceUID(device)),
+        self.publishUp(self.topicNameFor('meta', device, regT),
                        function(err) {
                            if (err) {
                                return log.error("Publish UP to MQTT: %s", err);
@@ -143,13 +119,14 @@ ninjaMqtt.prototype.blockHeartbeat = function(callback) {
     callback = defaultHandler(callback);
     var mqttClient = this.mqttClient,        
         qos = { qos: 2 },
-        app = this.app;
-    mqttClient.publish(CHANNELS.block(), app.id, qos, function(err) {
+        app = this.app,
+        topicNameFor = this.topicNameFor.bind(this);
+    mqttClient.publish(topicNameFor("block"), app.id, qos, function(err) {
         if (err) return callback(err);
         publishActive();
     });
     function publishActive() {
-        mqttClient.publish(CHANNELS.dev.meta(app.id) + "/active", "1",
+        mqttClient.publish(topicNameFor('meta') + '/active', "1",
                            qos,
                            callback);
     }
@@ -159,19 +136,19 @@ ninjaMqtt.prototype.deviceHeartbeat = function(device, callback) {
     callback = defaultHandler(callback);
     var mqttClient = this.mqttClient,
         app = this.app,
-        deviceID = deviceUID(device);
-        qos = { qos: 2 };
-    [ device.readable ?
-      CHANNELS.dev.sensor.meta(app.id, deviceID) : undefined,
-      device.writeable ?
-      CHANNELS.dev.actuator.meta(app.id, deviceID) : undefined ].forEach(
-          function(prefix, i) {
-              if (prefix ==  undefined) return;
+        deviceID = deviceUID(device),
+        qos = { qos: 2 },
+        self = this;
+    [ device.readable ? 'sensor' : undefined,
+      device.writeable ? 'actuator' : undefined ].forEach(
+          function(devType, i) {
+              if (devType ==  undefined) return;
+              var prefix = self.topicNameFor('meta', device, devType);
               mqttClient.publish(prefix + "/active", "1", qos, function(err) {
                   if (err) return callback(err);
                   app.log.debug("published heartbeat for device %s_%s",
                                 app.id, deviceID);
-                  callback(null, i == 0 ? "sensor" : "actuator");
+                  callback(null, devType);
               });
           });
 };
@@ -181,7 +158,7 @@ ninjaMqtt.prototype.subscribeActuatorTopic = function(device, callback) {
     var mqttClient = this.mqttClient,
         app = this.app,
         deviceID = deviceUID(device),
-        topic = CHANNELS.dev.actuator.value(app.id, deviceID),
+        topic = this.topicNameFor('value', device, 'actuator'),
         qos = { qos: 1 };
     mqttClient.subscribe(topic, qos, function(err, granted) {
         if (err) return callback(err);
@@ -197,20 +174,33 @@ ninjaMqtt.prototype._write = function(chunk, encoding, callback) {
     return this.mqttClient.write(chunk, encoding, callback);
 }
 
+ninjaMqtt.prototype.topicNameFor = function(channelType, device, deviceType) {
+    if (channelType == 'block') return 'ninjablock/blocks';
+    if (device) {
+        return ['dev',
+                this.app.id,
+                deviceType,
+                deviceUID(device),
+                channelType].join('/');
+    } else {
+        return ['dev', this.app.id, channelType].join('/');
+    }
+}
+
 function dataHandler(device) {
-    var log = this.app.log;
-    var self = this;
+    var log = this.app.log,
+        self = this,
+        qos = { qos: 1 },
+        topic = this.topicNameFor('value', device, 'sensor');
 
     return function(data) {
         if (!self.mqttClient.connected) {
             return log.debug("MQTT not connected, dropping data (%s)", data);
         }
-        var topic = CHANNELS.dev.sensor.value(self.app.id, deviceUID(device)),
-            qos = { qos: 1 };
         self.mqttClient.publish(topic, data, qos, function(err) {
             if (err) {
                 return log.error("Error publishing data from %s: %s",
-                                 device.GUID, err);
+                                 deviceGUID(self.app.id, device), err);
             }
         });
     };
