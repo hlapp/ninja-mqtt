@@ -51,7 +51,7 @@ function ninjaMqtt(opts, app) {
         // register devices that have been queued up
         var devGuid;
         while (devGuid = self.queuedRegistrations.pop()) {
-            self.registerDevice(devGUID);
+            self.registerDevice(devGuid);
         }
     });
     this.mqttClient.on('reconnect', function () {
