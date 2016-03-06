@@ -54,6 +54,7 @@ function ninjaMqtt(opts, app) {
             self.registerDevice(devGuid);
             devGuid = self.queuedRegistrations.pop()
         }
+        self.mqttClient.on('message', messageHandler.call(self));
     });
     this.mqttClient.on('reconnect', function () {
         app.log.info("Reconnecting to MQTT broker");
@@ -100,10 +101,7 @@ ninjaMqtt.prototype.registerDevice = function(devGuid) {
         if (devType === 'sensor') {
             device.on('data', dataHandler.call(self, device));
         } else if (devType === 'actuator') {
-            this.subscribeActuatorTopic(device, function(err, granted) {
-                if (err) throw err;
-                self.mqttClient.on('message', messageHandler.call(self,device));
-            });
+            self.subscribeActuatorTopic(device);
         }
     });
 }
@@ -210,11 +208,19 @@ function dataHandler(device) {
     };
 }
 
-function messageHandler(device) {
+function messageHandler() {
     var log = this.app.log,
         self = this;
     return function(topic, message) {
-        var DA = message.toString();
+        var topicElems = topic.split('/');
+        if (topicElems.length < 4) return;
+        var DA = message.toString(),
+            deviceID = topicElems[1] + "_" + topicElems[3],
+            device = self.devices[deviceID];
+        if (!device) {
+            return log.warn("Attempt to actuate unknown device %s (%s)",
+                            deviceID, DA);
+        }
         if ('function' == typeof device.write) {
             log.debug("Actuating device %s (%s) using write",
                       deviceGUID(self.app.id, device), DA);
