@@ -86,9 +86,8 @@ ninjaMqtt.prototype.registerDevice = function(devGuid) {
     if (device.writeable || ('function' === typeof device.write)) {
         devTypes.push('actuator');
     }
-    for (var i = 0; i < devTypes.length; i++) {
-        var devType = devTypes[i];
-        this.deviceHeartbeat(device, devType, function(err) {
+    devTypes.forEach(function(devType) {
+        self.deviceHeartbeat(device, devType, function(err) {
             if (err) throw err;
             log.info("Registered %s device %s with MQTT broker",devType,devGuid);
             self.publishUp(
@@ -99,14 +98,14 @@ ninjaMqtt.prototype.registerDevice = function(devGuid) {
                 });
         });
         if (devType === 'sensor') {
-            device.on('data', dataHandler.call(this, device));
+            device.on('data', dataHandler.call(self, device));
         } else if (devType === 'actuator') {
             this.subscribeActuatorTopic(device, function(err, granted) {
                 if (err) throw err;
                 self.mqttClient.on('message', messageHandler.call(self,device));
             });
         }
-    }
+    });
 }
 
 ninjaMqtt.prototype.registerBlock = function(callback) {
