@@ -141,18 +141,22 @@ ninjaMqtt.prototype.deviceHeartbeat = function(device, callback) {
         deviceID = deviceUID(device),
         qos = { qos: 2 },
         self = this;
-    [ device.readable ? 'sensor' : undefined,
-      device.writeable ? 'actuator' : undefined ].forEach(
-          function(devType, i) {
-              if (devType ==  undefined) return;
-              var prefix = self.topicNameFor('meta', device, devType);
-              mqttClient.publish(prefix + "/active", "1", qos, function(err) {
-                  if (err) return callback(err);
-                  app.log.debug("published heartbeat for device %s_%s",
-                                app.id, deviceID);
-                  callback(null, devType);
-              });
-          });
+    var devTypes = [];
+    if ((device.readable === undefined) || device.readable) {
+        devTypes.push('sensor');
+    }
+    if (device.writeable || ('function' === typeof device.write)) {
+        devTypes.push('actuator');
+    }
+    for (var devType of devTypes) {
+        var prefix = self.topicNameFor('meta', device, devType);
+        mqttClient.publish(prefix + "/active", "1", qos, function(err) {
+            if (err) return callback(err);
+            app.log.debug("published heartbeat for device %s_%s",
+                          app.id, deviceID);
+            callback(null, devType);
+        });
+    }
 };
 
 ninjaMqtt.prototype.subscribeActuatorTopic = function(device, callback) {
