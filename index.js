@@ -160,7 +160,7 @@ ninjaMqtt.prototype.subscribeActuatorTopic = function(device, callback) {
     var mqttClient = this.mqttClient,
         app = this.app,
         deviceID = deviceUID(device),
-        topic = this.topicNameFor('value', device, 'actuator'),
+        topic = this.topicNameFor('data', device, 'actuator'),
         qos = { qos: 1 };
     mqttClient.subscribe(topic, qos, function(err, granted) {
         if (err) return callback(err);
@@ -193,7 +193,7 @@ function dataHandler(device) {
     var log = this.app.log,
         self = this,
         qos = { qos: 1 },
-        topic = this.topicNameFor('value', device, 'sensor');
+        topic = this.topicNameFor('data', device, 'sensor');
 
     return function(data) {
         if (!self.mqttClient.connected) {
