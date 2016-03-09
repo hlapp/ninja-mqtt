@@ -64,10 +64,6 @@ function ninjaMqtt(opts, app) {
     });
 
     app.on('device::up', this.registerDevice.bind(this));
-    app.on('client::down', function () {
-        /* disconnect from MQTT server */
-        this.mqttClient.end();
-    }.bind(this));
 };
 
 ninjaMqtt.prototype.registerDevice = function(devGuid) {
