@@ -34,6 +34,12 @@ function ninjaMqtt(opts, app) {
         connOpts.username = connOpts.username || app.id;
         connOpts.password = connOpts.password || app.token;
     }
+    connOpts.will = {
+        topic: this.topicNameFor('meta') + "/up",
+        payload: "false",
+        qos: 1,
+        retain: true
+    }
     /* connect to MQTT server */
     this.mqttClient = mqtt.connect(connOpts);
 
@@ -111,11 +117,9 @@ ninjaMqtt.prototype.registerBlock = function(callback) {
 
 ninjaMqtt.prototype.publishUp = function(topic, callback) {
     callback = defaultHandler(callback);
-    var qos = { qos: 2 };
-    this.mqttClient.publish(topic + "/up",
-                            (new Date(Date.now())).toString(),
-                            qos,
-                            callback);
+    var qos = { qos: 2, retain: true };
+    var now = (new Date(Date.now())).toString();
+    this.mqttClient.publish(topic + "/up", now, qos, callback);
 }
 
 ninjaMqtt.prototype.blockHeartbeat = function(callback) {
