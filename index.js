@@ -105,15 +105,20 @@ ninjaMqtt.prototype.registerDevice = function(devGuid) {
         }
     }
     devTypes.forEach(function(devType) {
-        self.deviceHeartbeat(device, devType, function(err) {
-            if (err) throw err;
+        var topicPrefix = self.topicNameFor('meta', device, devType);
+        self.publishUp(topicPrefix, function(err) {
+            if (err) return log.error("Publish UP to MQTT: %s", err);
+            log.debug("Published UP for %s %s", devType, devGuid);
+            self.publishMeta(topicPrefix, device, function(err) {
+                if (err) return log.error("Publish META to MQTT: %s", err);
+                log.debug("Published metadata for %s %s", devType, devGuid);
+            });
             log.info("Registered %s device %s with MQTT broker",devType,devGuid);
-            self.publishUp(
-                self.topicNameFor('meta', device, devType),
-                function(err) {
-                    if (err) return log.error("Publish UP to MQTT: %s", err);
-                    log.debug("Published UP for %s", devGuid);
-                });
+            self.deviceHeartbeat(device, devType, function(err) {
+                if (err) throw err;
+                log.debug("published heartbeat for %s device %",
+                          devType, devGuid);
+            });
         });
         if (devType === 'sensor') {
             device.on('data', dataHandler.call(self, device));
@@ -140,6 +145,24 @@ ninjaMqtt.prototype.publishUp = function(topic, callback) {
     this.mqttClient.publish(topic + "/up", now, qos, callback);
 }
 
+ninjaMqtt.prototype.publishMeta = function(topic, device, callback) {
+    callback = defaultHandler(callback);
+    if (! device.metadata) return callback();
+    var qos = { qos: 2, retain: true };
+    var metaProps = ['devType', 'name'];
+    for (var prop in metaProps) {
+        if (device.metadata[prop]) {
+            this.mqttClient.publish(topic + "/" + prop,
+                                    device.metadata['prop'].toString(),
+                                    qos,
+                                    function(err) {
+                                        if (err) return callback(err);
+                                    });
+        }
+    }
+    callback();
+}
+
 ninjaMqtt.prototype.blockHeartbeat = function(callback) {
     callback = defaultHandler(callback);
     var mqttClient = this.mqttClient,        
@@ -157,20 +180,11 @@ ninjaMqtt.prototype.blockHeartbeat = function(callback) {
     }
 };
 
-ninjaMqtt.prototype.deviceHeartbeat = function(device, devType, callback) {
+ninjaMqtt.prototype.deviceHeartbeat = function(topicPrefix, callback) {
     callback = defaultHandler(callback);
     var mqttClient = this.mqttClient,
-        app = this.app,
-        deviceID = deviceUID(device),
-        qos = { qos: 2 },
-        self = this;
-    var prefix = self.topicNameFor('meta', device, devType);
-    mqttClient.publish(prefix + "/active", "1", qos, function(err) {
-        if (err) return callback(err);
-        app.log.debug("published heartbeat for %s device %s_%s",
-                      devType, app.id, deviceID);
-        callback();
-    });
+        qos = { qos: 2 };
+    mqttClient.publish(topicPrefix + "/active", "1", qos, callback);
 };
 
 ninjaMqtt.prototype.subscribeActuatorTopic = function(device, callback) {
