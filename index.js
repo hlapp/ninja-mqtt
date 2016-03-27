@@ -228,10 +228,11 @@ function dataHandler(device) {
         topic = this.topicNameFor('data', device, 'sensor');
 
     return function(data) {
+        var DA = data.toString();
         if (!self.mqttClient.connected) {
             return log.debug("MQTT not connected, dropping data (%s)", data);
         }
-        self.mqttClient.publish(topic, data.toString(), qos, function(err) {
+        self.mqttClient.publish(topic, DA, qos, function(err) {
             if (err) {
                 return log.error("Error publishing data from %s: %s",
                                  deviceGUID(self.app.id, device), err);
