@@ -1,6 +1,9 @@
 var mqtt = require("mqtt")
     , util = require('util')
-    , stream = require('stream').Writable;
+    , stream = require('stream').Writable
+    , EventEmitter = require('events')
+    , config = require("./lib/config")
+    , dt = require("./lib/deviceTable");
 
 const enabled = true;
 
@@ -27,7 +30,7 @@ function ninjaMqtt(opts, app) {
     this.queuedRegistrations = Object.keys(this.devices);
 
     // read and as needed update connection and other configuration
-    var connOpts = require("./lib/config").connOpts;
+    var connOpts = config.connOpts;
     // fall back to serial as username and app token as password if username
     // and password are needed (userID may be implied by key, or anonymous)
     if (connOpts.username !== undefined) {
@@ -83,11 +86,23 @@ ninjaMqtt.prototype.registerDevice = function(devGuid) {
     }
     // otherwise register the device on MQTT broker
     var devTypes = [];
-    if ((device.readable === undefined) || device.readable) {
-        devTypes.push('sensor');
+    if (! device.metadata) {
+        var matchingDevs = dt.findDevice(device);
+        if (matchingDevs.length > 0) {
+            device.metadata = matchingDevs[0];
+        }
     }
-    if (device.writeable || ('function' === typeof device.write)) {
-        devTypes.push('actuator');
+    if (device.metadata) {
+        if (device.metadata.readable) devTypes.push('sensor');
+        if (device.metadata.writable) devTypes.push('actuator');
+    } else {
+        log.warn("Device %s not found in the known device table", devGuid);
+        if ((device.readable === undefined) || device.readable) {
+            devTypes.push('sensor');
+        }
+        if (device.writeable || ('function' === typeof device.write)) {
+            devTypes.push('actuator');
+        }
     }
     devTypes.forEach(function(devType) {
         self.deviceHeartbeat(device, devType, function(err) {
@@ -106,6 +121,9 @@ ninjaMqtt.prototype.registerDevice = function(devGuid) {
             self.subscribeActuatorTopic(device);
         }
     });
+    if (isRF433device(device)) {
+        device.on('data', rf433subDeviceHandler.call(self, device));
+    }
 }
 
 ninjaMqtt.prototype.registerBlock = function(callback) {
@@ -208,6 +226,28 @@ function dataHandler(device) {
     };
 }
 
+function rf433subDeviceHandler(device) {
+    var self = this;
+
+    return function(data) {
+        var devMeta = config.rf433deviceMap[data.toString()];
+        if (devMeta) {
+            var subDevGuid = deviceGUID(self.app.id, devMeta);
+            var subDev = self.devices[subDevGuid];
+            if (! subDev) {
+                subDev = {
+                    G: devMeta.G, V: devMeta.V, D: devMeta.D,
+                    metadata: devMeta
+                };
+                EventEmitter.call(subDev);
+                self.devices[subDevGuid] = subDev;
+                self.registerDevice(subDevGuid);
+            }
+            subDev.emit('data', subDev.metadata.mapRFdata(data));
+        }
+    };
+}
+
 function messageHandler() {
     var log = this.app.log,
         self = this;
@@ -246,6 +286,11 @@ function defaultHandler(callback) {
     return (callback && ('function' === typeof callback)) ?
         callback : function(err) { if (err) throw err; }
     ;
+}
+
+function isRF433device(device) {
+    var rf433devices = dt.findDevice({ V:device.V, D:device.D, name:"rf433" });
+    return rf433devices.length > 0;
 }
 
 module.exports = ninjaMqtt;
