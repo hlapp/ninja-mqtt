@@ -150,7 +150,7 @@ ninjaMqtt.prototype.publishMeta = function(topic, device, callback) {
     if (! device.metadata) return callback();
     var qos = { qos: 2, retain: true };
     var metaProps = ['devType', 'name'];
-    for (var prop in metaProps) {
+    for (var prop of metaProps) {
         if (device.metadata[prop]) {
             this.mqttClient.publish(topic + "/" + prop,
                                     device.metadata['prop'].toString(),
