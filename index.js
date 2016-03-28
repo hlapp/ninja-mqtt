@@ -10,6 +10,17 @@ const enabled = true;
 // Give our driver a stream interface
 util.inherits(ninjaMqtt,stream);
 
+// Device is an EventEmitter
+util.inherits(Device, EventEmitter);
+
+function Device(deviceMeta) {
+    EventEmitter.call(this);
+    this.G = deviceMeta.G;
+    this.V = deviceMeta.V;
+    this.D = deviceMeta.D;
+    this.metadata = deviceMeta;
+}
+
 function ninjaMqtt(opts, app) {
     stream.call(this);
     var self = this;
@@ -250,11 +261,7 @@ function rf433subDeviceHandler(device) {
             var subDevGuid = deviceGUID(self.app.id, devMeta);
             var subDev = self.devices[subDevGuid];
             if (! subDev) {
-                subDev = {
-                    G: devMeta.G, V: devMeta.V, D: devMeta.D,
-                    metadata: devMeta
-                };
-                EventEmitter.call(subDev);
+                subDev = new Device(devMeta);
                 self.devices[subDevGuid] = subDev;
                 self.registerDevice(subDevGuid);
             }
