@@ -304,7 +304,7 @@ function defaultHandler(callback) {
 }
 
 function isRF433device(device) {
-    var rf433devices = dt.findDevice({ V:device.V, D:device.D, name:"rf433" });
+    var rf433devices = dt.findDevice({V:device.V, D:device.D, devType:"rf433"});
     return rf433devices.length > 0;
 }
 
