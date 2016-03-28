@@ -153,7 +153,7 @@ ninjaMqtt.prototype.publishMeta = function(topic, device, callback) {
     for (var prop of metaProps) {
         if (device.metadata[prop]) {
             this.mqttClient.publish(topic + "/" + prop,
-                                    device.metadata['prop'].toString(),
+                                    device.metadata[prop].toString(),
                                     qos,
                                     function(err) {
                                         if (err) return callback(err);
